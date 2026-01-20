@@ -11,5 +11,7 @@ langchain - openai
 faiss - cpu
 
 pypdf
+sentence-transformers
+torch
 
 tiktoken
