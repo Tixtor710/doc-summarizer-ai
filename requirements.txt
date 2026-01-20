@@ -1,13 +1,14 @@
+black
 fastapi
 uvicorn
 pydantic
-python-dotenv
+python - dotenv
 
 langchain
-langchain-community
-langchain-openai
+langchain - community
+langchain - openai
 
-faiss-cpu
+faiss - cpu
 
 pypdf
 

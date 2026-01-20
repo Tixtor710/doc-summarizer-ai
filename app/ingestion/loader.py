@@ -1,6 +1,7 @@
 from pathlib import Path
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
 
+
 def load_document(path: Path) -> str:
     suffix = path.suffix.lower()
 
