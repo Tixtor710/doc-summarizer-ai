@@ -31,7 +31,7 @@ The project is structured to reflect production-ready GenAI workflows:
 ---
 
 ## Project Structure
-
+```
 doc-summarizer-ai/
 ├── app/
 │ ├── ingestion/ # Document loading, normalization, chunking
@@ -48,7 +48,7 @@ doc-summarizer-ai/
 ├── requirements.txt
 ├── README.md
 └── .gitignore
-
+```
 
 ---
 
@@ -83,3 +83,36 @@ EMBEDDING_MODEL=text-embedding-3-small
 ```
 data/documents/
 ```
+- Run the ingestion test module from the project root:
+```
+python -m app.ingestion.test
+```
+- This will:
+1. Load the document
+2. Normalize the text
+3. Chunk it into semantic segments
+4. Print chunk count and sample output
+
+### Design Philosophy
+
+- **Garbage in, garbage out applies:** preprocessing quality matters more than model size
+
+- **Determinism over vibes:** predictable pipelines beat clever prompts
+
+- **Separation of concerns:** ingestion, retrieval, and generation are independent layers
+
+- **Fail loudly:** errors are preferred over silent hallucinations
+
+### Roadmap
+
+ - Document ingestion and chunking
+
+ - Embeddings generation
+
+ - FAISS vector store integration
+
+ - Retrieval-augmented generation (RAG)
+
+ - Output validation and evaluation
+
+ - Human-in-the-loop review
