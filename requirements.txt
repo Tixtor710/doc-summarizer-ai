@@ -9,4 +9,6 @@ langchain-openai
 
 faiss-cpu
 
+pypdf
+
 tiktoken
