@@ -94,25 +94,15 @@ python -m app.ingestion.test
 4. Print chunk count and sample output
 
 ### Design Philosophy
-
-- **Garbage in, garbage out applies:** preprocessing quality matters more than model size
-
-- **Determinism over vibes:** predictable pipelines beat clever prompts
-
-- **Separation of concerns:** ingestion, retrieval, and generation are independent layers
-
-- **Fail loudly:** errors are preferred over silent hallucinations
+    - **Garbage in, garbage out applies:** preprocessing quality matters more than model size
+    - **Determinism over vibes:** predictable pipelines beat clever prompts
+    - **Separation of concerns:** ingestion, retrieval, and generation are independent layers
+    - **Fail loudly:** errors are preferred over silent hallucinations
 
 ### Roadmap
-
- - Document ingestion and chunking
-
- - Embeddings generation
-
- - FAISS vector store integration
-
- - Retrieval-augmented generation (RAG)
-
- - Output validation and evaluation
-
- - Human-in-the-loop review
+    - Document ingestion and chunking
+    - Embeddings generation
+    - FAISS vector store integration
+    - Retrieval-augmented generation (RAG)
+    - Output validation and evaluation
+    - Human-in-the-loop review
