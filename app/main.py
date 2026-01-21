@@ -3,6 +3,9 @@ from app.retrieval.vectorstore import load_vectorstore
 from app.services.summarizer import summarize
 from app.utils.logging import setup_logger
 from app.middleware.request_logging import request_logging_middleware
+from fastapi import UploadFile, File
+from pathlib import Path
+from app.retrieval.index_documents import index_all_documents
 
 
 logger = setup_logger("api")
@@ -49,3 +52,35 @@ def summarize_query(query: str):
 
     return result.model_dump()
 
+DOCUMENTS_DIR = Path("data/documents")
+
+
+@app.post("/upload")
+async def upload_document(file: UploadFile = File(...)):
+    if not file.filename.endswith(".txt"):
+        raise HTTPException(
+            status_code=400,
+            detail="Only .txt files are supported"
+        )
+
+    DOCUMENTS_DIR.mkdir(parents=True, exist_ok=True)
+    file_path = DOCUMENTS_DIR / file.filename
+
+    contents = await file.read()
+    file_path.write_bytes(contents)
+
+    logger.info(f"Uploaded document: {file.filename}")
+
+    # Reindex documents
+    index_all_documents()
+
+    # Reload vectorstore
+    global vectorstore
+    vectorstore = load_vectorstore()
+
+    logger.info("Reindexing completed after upload")
+
+    return {
+        "status": "success",
+        "filename": file.filename
+    }

@@ -2,9 +2,20 @@ from pathlib import Path
 from app.ingestion.pipeline import ingest_document
 from app.retrieval.vectorstore import build_and_save_vectorstore
 
-path = Path("data/documents/superman.txt")  # or whichever file is canonical
+DOCUMENTS_DIR = Path("data/documents")
 
-chunks = ingest_document(path)
-build_and_save_vectorstore(chunks)
 
-print("Vector store built and saved.")
+def index_all_documents() -> None:
+    all_chunks = []
+
+    for doc_path in DOCUMENTS_DIR.glob("*.txt"):
+        chunks = ingest_document(doc_path)
+        for chunk in chunks:
+            all_chunks.append(
+                {
+                    "text": chunk,
+                    "source": doc_path.name
+                }
+            )
+
+    build_and_save_vectorstore(all_chunks)
