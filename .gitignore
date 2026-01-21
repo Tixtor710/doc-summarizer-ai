@@ -16,3 +16,4 @@ venv/
 
 # Data (raw docs should not be versioned)
 data/
+data/vectorstore/
