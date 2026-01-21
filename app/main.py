@@ -1,34 +1,44 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
+
 from app.retrieval.vectorstore import load_vectorstore
+from app.retrieval.index_documents import index_all_documents
 from app.services.summarizer import summarize
+from app.services.streaming_summarizer import stream_summary
 from app.utils.logging import setup_logger
 from app.middleware.request_logging import request_logging_middleware
-from fastapi import UploadFile, File
-from pathlib import Path
-from app.retrieval.index_documents import index_all_documents
-from fastapi.responses import StreamingResponse
-from app.services.streaming_summarizer import stream_summary
-from fastapi.middleware.cors import CORSMiddleware
 
 
 logger = setup_logger("api")
 
 app = FastAPI(title="Document Summarizer AI")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://127.0.0.1:5500",
-        "http://localhost:5500",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
+# -------------------------
+# Middleware
+# -------------------------
 app.middleware("http")(request_logging_middleware)
 
-vectorstore = None
+# -------------------------
+# Frontend (D.2)
+# -------------------------
+FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 
+app.mount(
+    "/static",
+    StaticFiles(directory=FRONTEND_DIR),
+    name="static",
+)
+
+@app.get("/stream")
+def stream_ui():
+    return FileResponse(FRONTEND_DIR / "stream.html")
+
+# -------------------------
+# Vector store lifecycle
+# -------------------------
+vectorstore = None
 
 @app.on_event("startup")
 def startup():
@@ -37,16 +47,18 @@ def startup():
     vectorstore = load_vectorstore()
     logger.info("Vector store loaded")
 
-
+# -------------------------
+# Health
+# -------------------------
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
-
+# -------------------------
+# Summarization (non-stream)
+# -------------------------
 @app.post("/summarize")
 def summarize_query(query: str):
-    
-
     if vectorstore is None:
         logger.error("Vector store not loaded")
         raise HTTPException(status_code=500, detail="Vector store not loaded")
@@ -60,14 +72,14 @@ def summarize_query(query: str):
         )
 
     context_chunks = [d.page_content for d in docs]
-
     result = summarize(context_chunks)
-    logger.info("Summarization completed")
 
+    logger.info("Summarization completed")
     return result.model_dump()
 
-DOCUMENTS_DIR = Path("data/documents")
-
+# -------------------------
+# Summarization (streaming)
+# -------------------------
 @app.post("/summarize/stream")
 def summarize_stream(query: str):
     if vectorstore is None:
@@ -80,6 +92,11 @@ def summarize_stream(query: str):
         stream_summary(context_chunks),
         media_type="text/plain"
     )
+
+# -------------------------
+# Upload + reindex
+# -------------------------
+DOCUMENTS_DIR = Path("data/documents")
 
 @app.post("/upload")
 async def upload_document(file: UploadFile = File(...)):
@@ -97,10 +114,8 @@ async def upload_document(file: UploadFile = File(...)):
 
     logger.info(f"Uploaded document: {file.filename}")
 
-    # Reindex documents
     index_all_documents()
 
-    # Reload vectorstore
     global vectorstore
     vectorstore = load_vectorstore()
 
