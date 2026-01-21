@@ -1,9 +1,7 @@
 from langchain_ollama import ChatOllama
 
-
-
-def get_llm():
+def get_llm(streaming: bool = False):
     return ChatOllama(
         model="llama3",
-        temperature=0.2
+        streaming=streaming,
     )
