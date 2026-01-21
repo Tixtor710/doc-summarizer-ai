@@ -1,10 +1,10 @@
-import time
+import json
 from typing import Iterable
 from app.llm.client import get_llm
 from app.llm.prompts import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
 
 
-def stream_summary(context_chunks: list[str]) -> Iterable[str]:
+def stream_summary(context_chunks):
     llm = get_llm(streaming=True)
 
     context = "\n\n".join(context_chunks)
@@ -16,6 +16,7 @@ def stream_summary(context_chunks: list[str]) -> Iterable[str]:
     ]
 
     for chunk in llm.stream(messages):
-        if chunk.content:
+        # LangChain streaming chunks
+        if hasattr(chunk, "content") and chunk.content:
             yield chunk.content
-            time.sleep(0.1)  # 👈 ADD THIS LINE (temporary)
+

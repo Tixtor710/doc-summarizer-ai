@@ -2,6 +2,8 @@ from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
+import time
+import sys
 
 from app.retrieval.vectorstore import load_vectorstore
 from app.retrieval.index_documents import index_all_documents
@@ -14,15 +16,29 @@ from app.middleware.request_logging import request_logging_middleware
 logger = setup_logger("api")
 
 app = FastAPI(title="Document Summarizer AI")
+from fastapi.middleware.cors import CORSMiddleware
 
-# -------------------------
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://127.0.0.1:5500",
+        "http://localhost:5500",
+        "http://127.0.0.1:8000",
+        "http://localhost:8000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --------------------------------------------------
 # Middleware
-# -------------------------
+# --------------------------------------------------
 app.middleware("http")(request_logging_middleware)
 
-# -------------------------
+# --------------------------------------------------
 # Frontend (D.2)
-# -------------------------
+# --------------------------------------------------
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 
 app.mount(
@@ -35,9 +51,9 @@ app.mount(
 def stream_ui():
     return FileResponse(FRONTEND_DIR / "stream.html")
 
-# -------------------------
+# --------------------------------------------------
 # Vector store lifecycle
-# -------------------------
+# --------------------------------------------------
 vectorstore = None
 
 @app.on_event("startup")
@@ -47,29 +63,23 @@ def startup():
     vectorstore = load_vectorstore()
     logger.info("Vector store loaded")
 
-# -------------------------
+# --------------------------------------------------
 # Health
-# -------------------------
+# --------------------------------------------------
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
-# -------------------------
+# --------------------------------------------------
 # Summarization (non-stream)
-# -------------------------
+# --------------------------------------------------
 @app.post("/summarize")
 def summarize_query(query: str):
     if vectorstore is None:
-        logger.error("Vector store not loaded")
         raise HTTPException(status_code=500, detail="Vector store not loaded")
 
     docs = vectorstore.similarity_search(query, k=4)
     logger.info(f"Retrieved {len(docs)} chunks")
-
-    for d in docs:
-        logger.debug(
-            f"Source={d.metadata.get('source')} | Preview={d.page_content[:80]}"
-        )
 
     context_chunks = [d.page_content for d in docs]
     result = summarize(context_chunks)
@@ -77,34 +87,43 @@ def summarize_query(query: str):
     logger.info("Summarization completed")
     return result.model_dump()
 
-# -------------------------
-# Summarization (streaming)
-# -------------------------
-@app.post("/summarize/stream")
-def summarize_stream(query: str):
+# --------------------------------------------------
+# Summarization (SSE streaming) — D.3
+# --------------------------------------------------
+@app.get("/summarize/sse")
+def summarize_sse(query: str):
     if vectorstore is None:
         raise HTTPException(status_code=500, detail="Vector store not loaded")
 
     docs = vectorstore.similarity_search(query, k=4)
     context_chunks = [d.page_content for d in docs]
 
+    def event_generator():
+        for token in stream_summary(context_chunks):
+            yield f"data: {token}\n\n"
+
+        yield "data: [DONE]\n\n"
+
     return StreamingResponse(
-        stream_summary(context_chunks),
-        media_type="text/plain"
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # CRITICAL for streaming
+        },
     )
 
-# -------------------------
+
+# --------------------------------------------------
 # Upload + reindex
-# -------------------------
+# --------------------------------------------------
 DOCUMENTS_DIR = Path("data/documents")
 
 @app.post("/upload")
 async def upload_document(file: UploadFile = File(...)):
     if not file.filename.endswith(".txt"):
-        raise HTTPException(
-            status_code=400,
-            detail="Only .txt files are supported"
-        )
+        raise HTTPException(status_code=400, detail="Only .txt files are supported")
 
     DOCUMENTS_DIR.mkdir(parents=True, exist_ok=True)
     file_path = DOCUMENTS_DIR / file.filename
@@ -123,5 +142,5 @@ async def upload_document(file: UploadFile = File(...)):
 
     return {
         "status": "success",
-        "filename": file.filename
+        "filename": file.filename,
     }
