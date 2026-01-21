@@ -1,19 +1,26 @@
-black
-fastapi
-uvicorn
-pydantic
-python - dotenv
+# --- Core API ---
+fastapi==0.128.0
+uvicorn==0.40.0
+pydantic==2.12.5
+python-dotenv==1.2.1
 
-langchain
-langchain - community
+# --- LangChain core ---
+langchain==1.2.6
+langchain-community==0.4.1
+langchain-text-splitters==1.1.0
 
-langchain-huggingface
-langchain-ollama
+# --- Local embeddings + LLM ---
+langchain-huggingface==1.2.0
+langchain-ollama==1.0.1
+sentence-transformers==5.2.0
+torch==2.9.1
 
-faiss - cpu
+# --- Vector store ---
+faiss-cpu==1.13.2
 
-pypdf
-sentence-transformers
-torch
+# --- Document ingestion ---
+pypdf==6.6.0
+tiktoken==0.12.0
 
-tiktoken
+# --- Dev tooling ---
+black==26.1.0
