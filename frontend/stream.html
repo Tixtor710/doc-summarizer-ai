@@ -8,13 +8,19 @@
       font-family: Arial, sans-serif;
       margin: 40px;
     }
-    input {
+    input[type="text"] {
       width: 420px;
       padding: 6px;
     }
     button {
       padding: 6px 12px;
       margin-left: 8px;
+    }
+    .upload-box {
+      margin-bottom: 20px;
+      padding: 12px;
+      border: 1px solid #ddd;
+      background: #fafafa;
     }
     pre {
       margin-top: 20px;
@@ -27,14 +33,28 @@
       line-height: 1.6;
       overflow-y: auto;
     }
+    .status {
+      margin-top: 8px;
+      font-size: 13px;
+      color: #555;
+    }
   </style>
 </head>
 
 <body>
-  <h2>Streaming Summary</h2>
+  <h2>Document Summarizer</h2>
 
+  <!-- Upload section (D.6.5) -->
+  <div class="upload-box">
+    <input type="file" id="fileInput" accept=".txt" />
+    <button id="uploadBtn">Upload</button>
+    <div id="uploadStatus" class="status"></div>
+  </div>
+
+  <!-- Query + streaming -->
   <input
     id="query"
+    type="text"
     value="What is the main theme of the document?"
   />
   <button id="startBtn">Start</button>
@@ -43,77 +63,88 @@
   <pre id="output"></pre>
 
   <script>
-    let eventSource = null;
-    let cursorInterval = null;
+  let eventSource = null;
+  let cursorInterval = null;
+  let streamCompleted = false;
 
-    const output = document.getElementById("output");
-    const startBtn = document.getElementById("startBtn");
-    const stopBtn = document.getElementById("stopBtn");
+  const output = document.getElementById("output");
+  const startBtn = document.getElementById("startBtn");
+  const stopBtn = document.getElementById("stopBtn");
 
-    function startCursor() {
-      cursorInterval = setInterval(() => {
-        if (!output.textContent.endsWith("▌")) {
-          output.textContent += "▌";
-        }
-      }, 500);
-    }
-
-    function stopCursor() {
-      clearInterval(cursorInterval);
-      output.textContent = output.textContent.replace(/▌$/, "");
-    }
-
-    startBtn.onclick = () => {
-      output.textContent = "";
-      startBtn.disabled = true;
-      stopBtn.disabled = false;
-
-      const query = encodeURIComponent(
-        document.getElementById("query").value
-      );
-
-      if (eventSource) {
-        eventSource.close();
+  function startCursor() {
+    cursorInterval = setInterval(() => {
+      if (!output.textContent.endsWith("▌")) {
+        output.textContent += "▌";
       }
+    }, 500);
+  }
 
-      startCursor();
+  function stopCursor() {
+    clearInterval(cursorInterval);
+    output.textContent = output.textContent.replace(/▌$/, "");
+  }
 
-      eventSource = new EventSource(
-        `/summarize/sse?query=${query}`
-      );
+  startBtn.onclick = () => {
+    output.textContent = "";
+    streamCompleted = false;
 
-      eventSource.onmessage = (event) => {
-        if (event.data === "[DONE]") {
-          stopCursor();
-          eventSource.close();
-          startBtn.disabled = false;
-          stopBtn.disabled = true;
-          return;
-        }
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
 
+    const query = encodeURIComponent(
+      document.getElementById("query").value
+    );
+
+    if (eventSource) {
+      eventSource.close();
+    }
+
+    startCursor();
+
+    eventSource = new EventSource(
+      `/summarize/sse?query=${query}`
+    );
+
+    eventSource.onmessage = (event) => {
+      if (event.data === "[DONE]") {
+        streamCompleted = true;
         stopCursor();
-        output.textContent += event.data;
-        startCursor();
-        output.scrollTop = output.scrollHeight;
-      };
-
-      eventSource.onerror = () => {
-        stopCursor();
-        output.textContent += "\n\n[Connection lost]";
         eventSource.close();
         startBtn.disabled = false;
         stopBtn.disabled = true;
-      };
+        return;
+      }
+
+      stopCursor();
+      output.textContent += event.data;
+      startCursor();
+
+      output.scrollTop = output.scrollHeight;
     };
 
-    stopBtn.onclick = () => {
-      if (eventSource) {
-        eventSource.close();
-      }
+    eventSource.onerror = () => {
       stopCursor();
+
+      if (!streamCompleted) {
+        output.textContent += "\n\n[Connection lost]";
+      }
+
+      eventSource.close();
       startBtn.disabled = false;
       stopBtn.disabled = true;
     };
-  </script>
+  };
+
+  stopBtn.onclick = () => {
+    if (eventSource) {
+      eventSource.close();
+    }
+    stopCursor();
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+  };
+</script>
+
+
 </body>
 </html>
