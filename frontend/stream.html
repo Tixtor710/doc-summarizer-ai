@@ -63,88 +63,89 @@
   <pre id="output"></pre>
 
   <script>
-  let eventSource = null;
-  let cursorInterval = null;
-  let streamCompleted = false;
+    let eventSource = null;
+    let cursorInterval = null;
+    let streamCompleted = false;
 
-  const output = document.getElementById("output");
-  const startBtn = document.getElementById("startBtn");
-  const stopBtn = document.getElementById("stopBtn");
+    const output = document.getElementById("output");
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
 
-  function startCursor() {
-    cursorInterval = setInterval(() => {
-      if (!output.textContent.endsWith("▌")) {
-        output.textContent += "▌";
-      }
-    }, 500);
-  }
-
-  function stopCursor() {
-    clearInterval(cursorInterval);
-    output.textContent = output.textContent.replace(/▌$/, "");
-  }
-
-  startBtn.onclick = () => {
-    output.textContent = "";
-    streamCompleted = false;
-
-    startBtn.disabled = true;
-    stopBtn.disabled = false;
-
-    const query = encodeURIComponent(
-      document.getElementById("query").value
-    );
-
-    if (eventSource) {
-      eventSource.close();
+    function startCursor() {
+      cursorInterval = setInterval(() => {
+        if (!output.textContent.endsWith("▌")) {
+          output.textContent += "▌";
+        }
+      }, 500);
     }
 
-    startCursor();
+    function stopCursor() {
+      clearInterval(cursorInterval);
+      output.textContent = output.textContent.replace(/▌$/, "");
+    }
 
-    eventSource = new EventSource(
-      `/summarize/sse?query=${query}`
-    );
+    startBtn.onclick = () => {
+      output.textContent = "";
+      streamCompleted = false;
 
-    eventSource.onmessage = (event) => {
-      if (event.data === "[DONE]") {
-        streamCompleted = true;
-        stopCursor();
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+
+      const query = encodeURIComponent(
+        document.getElementById("query").value
+      );
+
+      if (eventSource) {
         eventSource.close();
-        startBtn.disabled = false;
-        stopBtn.disabled = true;
-        return;
       }
 
-      stopCursor();
-      output.textContent += event.data;
       startCursor();
 
-      output.scrollTop = output.scrollHeight;
+      eventSource = new EventSource(
+        `/summarize/sse?query=${query}`
+      );
+
+      eventSource.onmessage = (event) => {
+        if (event.data === "[DONE]") {
+          streamCompleted = true;
+          stopCursor();
+          eventSource.close();
+          startBtn.disabled = false;
+          stopBtn.disabled = true;
+          return;
+        }
+
+        stopCursor();
+        output.textContent += event.data;
+        startCursor();
+        output.scrollTop = output.scrollHeight;
+      };
+
+      eventSource.onerror = () => {
+  stopCursor();
+
+  // If the stream already completed normally, ignore this
+  if (streamCompleted) {
+    eventSource.close();
+    return;
+  }
+
+  output.textContent += "\n\n";
+  eventSource.close();
+  startBtn.disabled = false;
+  stopBtn.disabled = true;
+};
+
     };
 
-    eventSource.onerror = () => {
-      stopCursor();
-
-      if (!streamCompleted) {
-        output.textContent += "\n\n[Connection lost]";
+    stopBtn.onclick = () => {
+      if (eventSource) {
+        eventSource.close();
       }
-
-      eventSource.close();
+      stopCursor();
       startBtn.disabled = false;
       stopBtn.disabled = true;
     };
-  };
-
-  stopBtn.onclick = () => {
-    if (eventSource) {
-      eventSource.close();
-    }
-    stopCursor();
-    startBtn.disabled = false;
-    stopBtn.disabled = true;
-  };
-</script>
-
-
+  </script>
 </body>
 </html>
