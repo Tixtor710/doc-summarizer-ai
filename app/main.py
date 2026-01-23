@@ -101,8 +101,7 @@ def summarize_sse(query: str):
     def event_generator():
         for token in stream_summary(context_chunks):
             yield f"data: {token}\n\n"
-
-        yield "data: [DONE]\n\n"
+            time.sleep(0.01)  # helps flush on Windows
 
     return StreamingResponse(
         event_generator(),
@@ -110,9 +109,11 @@ def summarize_sse(query: str):
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # CRITICAL for streaming
+            "X-Accel-Buffering": "no",
         },
     )
+
+
 
 
 # --------------------------------------------------

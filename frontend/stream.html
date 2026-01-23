@@ -22,28 +22,51 @@
       background: #f5f5f5;
       border: 1px solid #ddd;
       white-space: pre-wrap;
-      min-height: 120px;
+      min-height: 140px;
+      font-size: 14px;
+      line-height: 1.6;
+      overflow-y: auto;
     }
   </style>
 </head>
 
 <body>
-  <h2>Streaming Summary (D.5)</h2>
+  <h2>Streaming Summary</h2>
 
   <input
     id="query"
     value="What is the main theme of the document?"
   />
   <button id="startBtn">Start</button>
+  <button id="stopBtn" disabled>Stop</button>
 
   <pre id="output"></pre>
 
   <script>
     let eventSource = null;
+    let cursorInterval = null;
 
-    document.getElementById("startBtn").onclick = () => {
-      const output = document.getElementById("output");
+    const output = document.getElementById("output");
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+
+    function startCursor() {
+      cursorInterval = setInterval(() => {
+        if (!output.textContent.endsWith("▌")) {
+          output.textContent += "▌";
+        }
+      }, 500);
+    }
+
+    function stopCursor() {
+      clearInterval(cursorInterval);
+      output.textContent = output.textContent.replace(/▌$/, "");
+    }
+
+    startBtn.onclick = () => {
       output.textContent = "";
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
 
       const query = encodeURIComponent(
         document.getElementById("query").value
@@ -53,42 +76,43 @@
         eventSource.close();
       }
 
+      startCursor();
+
       eventSource = new EventSource(
-        `http://127.0.0.1:8000/summarize/sse?query=${query}`
+        `/summarize/sse?query=${query}`
       );
 
       eventSource.onmessage = (event) => {
         if (event.data === "[DONE]") {
+          stopCursor();
           eventSource.close();
+          startBtn.disabled = false;
+          stopBtn.disabled = true;
           return;
         }
 
-        let payload;
-        try {
-          payload = JSON.parse(event.data);
-        } catch {
-          // Fallback for plain text
-          output.textContent += event.data;
-          return;
-        }
-
-        if (payload.type === "start") {
-          output.textContent = "";
-        }
-
-        if (payload.type === "text") {
-          output.textContent += payload.content;
-        }
-
-        if (payload.type === "end") {
-          eventSource.close();
-        }
+        stopCursor();
+        output.textContent += event.data;
+        startCursor();
+        output.scrollTop = output.scrollHeight;
       };
 
-      eventSource.onerror = (err) => {
-        console.error("SSE error", err);
+      eventSource.onerror = () => {
+        stopCursor();
+        output.textContent += "\n\n[Connection lost]";
         eventSource.close();
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
       };
+    };
+
+    stopBtn.onclick = () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+      stopCursor();
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
     };
   </script>
 </body>
