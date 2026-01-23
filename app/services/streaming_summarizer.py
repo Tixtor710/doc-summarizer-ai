@@ -1,24 +1,25 @@
-import json
 from typing import Iterable
 from app.llm.client import get_llm
-from app.llm.prompts import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
 from app.llm.prompts import STREAMING_PROMPT_TEMPLATE
 
-def stream_summary(context_chunks):
+
+def stream_summary(context_chunks) -> Iterable[str]:
     llm = get_llm(streaming=True)
 
     context = "\n\n".join(context_chunks)
-    
-    
     prompt = STREAMING_PROMPT_TEMPLATE.format(context=context)
 
-    messages = [
-        ("system", SYSTEM_PROMPT),
-        ("user", prompt),
-    ]
+    buffer = ""
 
-    for chunk in llm.stream(messages):
-        # LangChain streaming chunks
+    for chunk in llm.stream(prompt):
         if hasattr(chunk, "content") and chunk.content:
-            yield chunk.content
+            buffer += chunk.content
 
+            # Flush on sentence boundary
+            if buffer.endswith((".", "!", "?")):
+                yield buffer
+                buffer = ""
+
+    # Flush anything remaining
+    if buffer.strip():
+        yield buffer

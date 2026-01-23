@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Streaming Summary (SSE)</title>
+  <title>Streaming Summary</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -28,7 +28,7 @@
 </head>
 
 <body>
-  <h2>Streaming Summary (SSE)</h2>
+  <h2>Streaming Summary (D.5)</h2>
 
   <input
     id="query"
@@ -38,36 +38,58 @@
 
   <pre id="output"></pre>
 
-<script>
-  const btn = document.getElementById("startBtn");
-  const output = document.getElementById("output");
+  <script>
+    let eventSource = null;
 
-  btn.onclick = () => {
-    output.textContent = "";
+    document.getElementById("startBtn").onclick = () => {
+      const output = document.getElementById("output");
+      output.textContent = "";
 
-    const query = encodeURIComponent(
-      document.getElementById("query").value
-    );
+      const query = encodeURIComponent(
+        document.getElementById("query").value
+      );
 
-    const evtSource = new EventSource(
-      `http://127.0.0.1:8000/summarize/sse?query=${query}`
-    );
-
-    evtSource.onmessage = (event) => {
-      if (event.data === "[DONE]") {
-        evtSource.close();
-        return;
+      if (eventSource) {
+        eventSource.close();
       }
-      output.textContent += event.data;
+
+      eventSource = new EventSource(
+        `http://127.0.0.1:8000/summarize/sse?query=${query}`
+      );
+
+      eventSource.onmessage = (event) => {
+        if (event.data === "[DONE]") {
+          eventSource.close();
+          return;
+        }
+
+        let payload;
+        try {
+          payload = JSON.parse(event.data);
+        } catch {
+          // Fallback for plain text
+          output.textContent += event.data;
+          return;
+        }
+
+        if (payload.type === "start") {
+          output.textContent = "";
+        }
+
+        if (payload.type === "text") {
+          output.textContent += payload.content;
+        }
+
+        if (payload.type === "end") {
+          eventSource.close();
+        }
+      };
+
+      eventSource.onerror = (err) => {
+        console.error("SSE error", err);
+        eventSource.close();
+      };
     };
-
-    evtSource.onerror = (err) => {
-      console.error("SSE error", err);
-      // let browser retry
-    };
-  };
-</script>
-
-
+  </script>
 </body>
 </html>
