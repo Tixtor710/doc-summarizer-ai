@@ -30,3 +30,18 @@ JSON format:
   "key_points": ["...", "..."]
 }}
 """
+STREAMING_PROMPT_TEMPLATE = """
+You are a helpful assistant.
+
+Using the context below, explain the document clearly and naturally.
+Write in full sentences, like you are explaining to a human.
+
+Rules:
+- Do NOT return JSON
+- Do NOT use bullet points
+- Do NOT mention the word "context"
+- Write conversationally
+
+Context:
+{context}
+"""
